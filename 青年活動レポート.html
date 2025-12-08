@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>青年活動レポート</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Noto Sans JP", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #0f172a, #020617);
+      color: #e5e7eb;
+    }
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+    header { margin-bottom: 16px; }
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin: 0 0 4px;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    header h1 span.logo-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 30%, #f97316, #ea580c);
+      box-shadow: 0 0 12px rgba(234,88,12,0.8);
+    }
+    header .subtitle {
+      font-size: 0.85rem;
+      color: #9ca3af;
+      line-height: 1.4;
+    }
+
+    /* コントロールバー */
+    .control-bar {
+      margin-top: 20px;
+      margin-bottom: 12px;
+      padding: 12px 16px;
+      border-radius: 16px;
+      background: rgba(15,23,42,0.85);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    .control-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-right: 16px;
+    }
+    .control-label {
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+    select {
+      background: #020617;
+      border-radius: 999px;
+      border: 1px solid #374151;
+      padding: 6px 28px 6px 12px;
+      color: #e5e7eb;
+      font-size: 0.9rem;
+      outline: none;
+      min-width: 150px;
+    }
+    select:focus {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 1px #60a5fa;
+    }
+
+    .mode-toggle {
+      display: inline-flex;
+      border-radius: 999px;
+      background: #020617;
+      border: 1px solid #1f2937;
+      overflow: hidden;
+    }
+    .mode-btn {
+      border: none;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      color: #9ca3af;
+      background: transparent;
+      transition: all .15s ease-out;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .mode-btn.active {
+      background: linear-gradient(135deg,#38bdf8,#6366f1);
+      color: #0b1220;
+      font-weight: 600;
+    }
+
+    .pill-button {
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.8rem;
+      padding: 6px 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .15s;
+    }
+    .pill-button:hover {
+      background: #111827;
+      border-color: #9ca3af;
+    }
+
+    .status-text {
+      font-size: 0.8rem;
+      color: #f97316;
+      white-space: nowrap;
+    }
+
+    /* サマリーカード */
+    .summary-grid {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+    }
+    .card {
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.18), rgba(15,23,42,0.95));
+      border-radius: 18px;
+      padding: 12px 14px;
+      border: 1px solid rgba(148,163,184,0.18);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+    }
+    .card-title {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-bottom: 6px;
+    }
+    .card-value {
+      font-size: 1.3rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    /* グラフエリア */
+    .chart-row {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+      gap: 16px;
+    }
+    .chart-card {
+      height: 320px;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 16px;
+    }
+    .chart-title {
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .chart-card canvas {
+      flex: 1;
+    }
+    .trend-toggle .mode-btn {
+      font-size: 0.7rem;
+      padding: 4px 10px;
+    }
+
+    /* 下段：コメント & AI分析 */
+    .bottom-row {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+      gap: 16px;
+    }
+    .comments-card, .ai-card {
+      max-height: 320px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .scroll-body {
+      margin-top: 8px;
+      overflow-y: auto;
+      padding-right: 4px;
+      scrollbar-width: thin;
+    }
+    .scroll-body::-webkit-scrollbar {
+      width: 6px;
+    }
+    .scroll-body::-webkit-scrollbar-thumb {
+      background: #4b5563;
+      border-radius: 8px;
+    }
+    .comment-item {
+      border-bottom: 1px dashed rgba(55,65,81,0.8);
+      padding: 6px 0 8px;
+      font-size: 0.8rem;
+    }
+    .comment-meta {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-bottom: 2px;
+    }
+    .comment-good {
+      color: #a5f3fc;
+      margin-bottom: 2px;
+    }
+    .comment-improve {
+      color: #f97316;
+    }
+    .ai-text {
+      font-size: 0.83rem;
+      color: #d1d5db;
+      line-height: 1.6;
+    }
+    .ai-chip {
+      display: inline-block;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(129,140,248,0.15);
+      border: 1px solid rgba(129,140,248,0.7);
+      color: #e5e7eb;
+      margin-right: 6px;
+    }
+    .ai-section-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-top: 6px;
+      margin-bottom: 2px;
+      color: #93c5fd;
+    }
+
+    footer {
+      margin-top: 28px;
+      font-size: 0.7rem;
+      color: #6b7280;
+      text-align: right;
+    }
+
+    @media (max-width: 840px) {
+      .chart-row,
+      .bottom-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .control-bar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .status-text {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1><span class="logo-dot"></span>青年活動レポート</h1>
+    <div class="subtitle">
+      行事別・月別に、5段階評価・満足度・雰囲気・再参加意向・コメントを自動で集計し、<br>
+      青年部の伝道・育成・場づくりをデータで振り返るためのダッシュボードです。
+    </div>
+  </header>
+
+  <!-- コントロールバー -->
+  <div class="control-bar">
+    <div class="control-group">
+      <span class="control-label">表示モード：</span>
+      <div class="mode-toggle">
+        <button id="modeEvent" class="mode-btn active" data-mode="event">行事別</button>
+        <button id="modeMonth" class="mode-btn" data-mode="month">月別</button>
+        <button id="modeEventMonth" class="mode-btn" data-mode="eventMonth">行事×月</button>
+      </div>
+    </div>
+
+    <div class="control-group" id="eventSelectGroup">
+      <span class="control-label">行事を選択：</span>
+      <select id="eventSelect"></select>
+    </div>
+
+    <div class="control-group" id="monthSelectGroup" style="display:none;">
+      <span class="control-label">月を選択：</span>
+      <select id="monthSelect"></select>
+    </div>
+
+    <div class="control-group">
+      <button id="csvBtn" class="pill-button">
+        ⬇ CSVエクスポート
+      </button>
+    </div>
+
+    <div class="control-group" style="margin-left:auto;">
+      <span id="status" class="status-text"></span>
+    </div>
+  </div>
+
+  <!-- サマリー -->
+  <div id="summaryCards" class="summary-grid"></div>
+
+  <!-- グラフ -->
+  <div class="chart-row">
+    <div class="card chart-card">
+      <div class="chart-title">レーダーチャート（バランス）</div>
+      <canvas id="radarChart"></canvas>
+    </div>
+    <div class="card chart-card">
+      <div class="chart-header">
+        <div class="chart-title">満足度の推移</div>
+        <div class="mode-toggle trend-toggle">
+          <button id="trendLineBtn" class="mode-btn active" data-type="line">折れ線</button>
+          <button id="trendBarBtn" class="mode-btn" data-type="bar">棒グラフ</button>
+        </div>
+      </div>
+      <canvas id="lineChart"></canvas>
+    </div>
+  </div>
+
+  <!-- コメント & AI風分析 -->
+  <div class="bottom-row">
+    <div class="card comments-card">
+      <div class="chart-title">参加者の声（よかった点・改善点）</div>
+      <div id="commentsBox" class="scroll-body"></div>
+    </div>
+    <div class="card ai-card">
+      <div class="chart-title">AI風 分析コメント＆次の一手の提案（ローカルルールベース）</div>
+      <div id="aiInsight" class="scroll-body ai-text"></div>
+    </div>
+  </div>
+
+  <footer>
+    ※このダッシュボードは Googleフォームの「感想フォーム（回答）」の内容を元に自動更新されます。
+  </footer>
+</div>
+
+<script>
+  /***** 設定 *****/
+  const SHEET_ID = '1JQoma8Vde9k7iWsCyxVJf0f_3QrFh7pECMMHhBkQejY';
+  const GID = '0';
+
+  let allData = [];
+  let byEvent = new Map();
+  let byMonth = new Map();
+  let currentMode = 'event';        // 'event' | 'month' | 'eventMonth'
+  let currentTrendType = 'line';    // 'line' | 'bar'
+  let currentSummary = null;
+
+  /***** ユーティリティ：日付表示用 *****/
+  function formatDateLabel(raw) {
+    if (!raw) return '';
+    if (raw instanceof Date) {
+      const y = raw.getFullYear();
+      const m = ('0' + (raw.getMonth() + 1)).slice(-2);
+      const d = ('0' + raw.getDate()).slice(-2);
+      return `${y}/${m}/${d}`;
+    }
+    const d = new Date(raw);
+    if (!isNaN(d)) return formatDateLabel(d);
+    return String(raw);
+  }
+
+  /***** Google Sheets から JSONP で取得 *****/
+  function loadGvizJson() {
+    return new Promise(function (resolve, reject) {
+      window.google = window.google || {};
+      window.google.visualization = window.google.visualization || {};
+      window.google.visualization.Query = window.google.visualization.Query || {};
+      window.google.visualization.Query.setResponse = function (json) {
+        resolve(json);
+      };
+
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${GID}`;
+      const script = document.createElement('script');
+      script.src = url;
+      script.onerror = () => reject(new Error('script load error'));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function fetchSheetData() {
+    const json = await loadGvizJson();
+    const rows = json.table.rows || [];
+
+    const data = [];
+    for (const row of rows) {
+      const c = row.c;
+      if (!c) continue;
+      const get = (i) => (c[i] && c[i].v != null) ? c[i].v : null;
+      if (!get(1)) continue; // Q1 参加した活動名
+
+      data.push({
+        timestamp: get(0),
+        eventName: String(get(1) || '').trim(),
+        date:      get(2),
+        name:      get(3),
+        kubun:     get(4),
+        q5:  parseScore(get(5)),
+        q6:  parseScore(get(6)),
+        q7:  parseScore(get(7)),
+        q8:  parseScore(get(8)),
+        q9:  parseScore(get(9)),
+        q10: parseScore(get(10)),
+        q11: parseScore(get(11)),
+        q12: parseScore(get(12)),
+        q13: parseScore(get(13)),
+        good:    get(14),
+        improve: get(15)
+      });
+    }
+    return data;
+  }
+
+  function parseScore(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return v;
+    const m = String(v).match(/^(\d)/);
+    return m ? Number(m[1]) : null;
+  }
+
+  /***** 集計ロジック *****/
+  function groupDataStructures(data) {
+    byEvent = new Map();
+    byMonth = new Map();
+
+    for (const r of data) {
+      const eKey = r.eventName || '（未設定）';
+      if (!byEvent.has(eKey)) byEvent.set(eKey, []);
+      byEvent.get(eKey).push(r);
+
+      const monthKey = getMonthKey(r.date || r.timestamp);
+      if (!byMonth.has(monthKey)) byMonth.set(monthKey, []);
+      byMonth.get(monthKey).push(r);
+    }
+  }
+
+  function getMonthKey(raw) {
+    if (!raw) return '未分類';
+    const d = raw instanceof Date ? raw : new Date(raw);
+    if (isNaN(d)) return '未分類';
+    const y = d.getFullYear();
+    const m = ('0' + (d.getMonth() + 1)).slice(-2);
+    return `${y}-${m}`;
+  }
+
+  function calcSummary(rows, label) {
+    if (!rows || rows.length === 0) return null;
+    const avg = (arr) => {
+      const nums = arr.filter(v => typeof v === 'number');
+      if (!nums.length) return null;
+      return nums.reduce((a,b) => a+b, 0) / nums.length;
+    };
+
+    const avgTimeFlow = avg(rows.map(r => {
+      if (typeof r.q5 === 'number' && typeof r.q6 === 'number') return (r.q5 + r.q6) / 2;
+      if (typeof r.q5 === 'number') return r.q5;
+      if (typeof r.q6 === 'number') return r.q6;
+      return null;
+    }));
+    const avgContent = avg(rows.map(r => r.q7));
+    const avgMood = avg(rows.map(r => {
+      if (typeof r.q8 === 'number' && typeof r.q9 === 'number') return (r.q8 + r.q9) / 2;
+      if (typeof r.q8 === 'number') return r.q8;
+      if (typeof r.q9 === 'number') return r.q9;
+      return null;
+    }));
+    const avgEmotion = avg(rows.map(r => {
+      if (typeof r.q10 === 'number' && typeof r.q11 === 'number') return (r.q10 + r.q11) / 2;
+      if (typeof r.q10 === 'number') return r.q10;
+      if (typeof r.q11 === 'number') return r.q11;
+      return null;
+    }));
+    const avgSatisfy = avg(rows.map(r => r.q12));
+    const avgRejoin = avg(rows.map(r => r.q13));
+
+    const history = rows
+      .filter(r => r.q12 != null)
+      .slice()
+      .sort((a,b) => new Date(a.date || a.timestamp) - new Date(b.date || b.timestamp))
+      .map(r => ({
+        date: formatDateLabel(r.date || r.timestamp),
+        satisfy: r.q12
+      }));
+
+    const comments = rows
+      .filter(r =>
+        (r.good && String(r.good).trim() !== '') ||
+        (r.improve && String(r.improve).trim() !== '')
+      )
+      .slice()
+      .sort((a,b) => new Date(b.date || b.timestamp) - new Date(a.date || a.timestamp))
+      .map(r => ({
+        date: formatDateLabel(r.date || r.timestamp),
+        eventName: r.eventName,
+        good: r.good,
+        improve: r.improve
+      }));
+
+    return {
+      label,
+      count: rows.length,
+      avgTimeFlow,
+      avgContent,
+      avgMood,
+      avgEmotion,
+      avgSatisfy,
+      avgRejoin,
+      history,
+      comments
+    };
+  }
+
+  /***** Chart.js 描画 *****/
+  let radarChart, lineChart;
+
+  function updateCharts(summary) {
+    const radarCtx = document.getElementById('radarChart').getContext('2d');
+    const lineCtx = document.getElementById('lineChart').getContext('2d');
+
+    if (radarChart) radarChart.destroy();
+    if (lineChart) lineChart.destroy();
+
+    const labels = ['時間・構成', '内容の質', '雰囲気・安心感', '楽しさ・やりがい', '満足度', '再参加意向'];
+    const data = [
+      summary.avgTimeFlow,
+      summary.avgContent,
+      summary.avgMood,
+      summary.avgEmotion,
+      summary.avgSatisfy,
+      summary.avgRejoin
+    ];
+
+    radarChart = new Chart(radarCtx, {
+      type: 'radar',
+      data: {
+        labels,
+        datasets: [{
+          label: summary.label,
+          data,
+          fill: true,
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointHoverRadius: 4
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { labels: { color: '#e5e7eb' } }
+        },
+        scales: {
+          r: {
+            min: 1,
+            max: 5,
+            ticks: {
+              stepSize: 1,
+              color: '#9ca3af',
+              backdropColor: 'rgba(0,0,0,0)'  // 数字の白塗りつぶしを消す
+            },
+            grid: {},
+            angleLines: {},
+            pointLabels: { color: '#e5e7eb' }
+          }
+        }
+      }
+    });
+
+    const labelsLine = summary.history.map(h => h.date);
+    const dataLine = summary.history.map(h => h.satisfy);
+
+    lineChart = new Chart(lineCtx, {
+      type: currentTrendType,
+      data: {
+        labels: labelsLine,
+        datasets: [{
+          label: '満足度',
+          data: dataLine,
+          tension: currentTrendType === 'line' ? 0.25 : 0
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { labels: { color: '#e5e7eb' } }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#9ca3af' },
+            grid: { color: '#111827' }
+          },
+          y: {
+            min: 1,
+            max: 5,
+            ticks: { stepSize: 1, color: '#9ca3af' },
+            grid: { color: '#111827' }
+          }
+        }
+      }
+    });
+  }
+
+  /***** UI更新 *****/
+  function updateSummaryCards(summary) {
+    const box = document.getElementById('summaryCards');
+    box.innerHTML = '';
+
+    const items = [
+      ['集計対象', summary.label],
+      ['回答数', summary.count],
+      ['時間・構成', summary.avgTimeFlow?.toFixed(2)],
+      ['内容の質', summary.avgContent?.toFixed(2)],
+      ['雰囲気・安心感', summary.avgMood?.toFixed(2)],
+      ['楽しさ・やりがい', summary.avgEmotion?.toFixed(2)],
+      ['満足度', summary.avgSatisfy?.toFixed(2)],
+      ['再参加意向', summary.avgRejoin?.toFixed(2)]
+    ];
+
+    for (const [title, value] of items) {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+        <div class="card-title">${title}</div>
+        <div class="card-value">${value != null ? value : '-'}</div>
+      `;
+      box.appendChild(div);
+    }
+  }
+
+  function updateComments(summary) {
+    const box = document.getElementById('commentsBox');
+    if (!summary.comments.length) {
+      box.innerHTML = '<span style="color:#9ca3af;">まだコメントはありません。</span>';
+      return;
+    }
+    box.innerHTML = '';
+    summary.comments.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'comment-item';
+      div.innerHTML = `
+        <div class="comment-meta">${c.date || ''} ｜ ${c.eventName || ''}</div>
+        ${c.good ? `<div class="comment-good">◎ ${c.good}</div>` : ''}
+        ${c.improve ? `<div class="comment-improve">△ ${c.improve}</div>` : ''}
+      `;
+      box.appendChild(div);
+    });
+  }
+
+  /***** 「AI風」分析コメント生成 *****/
+  function generateInsight(summary, mode) {
+    if (!summary) return 'データがありません。';
+
+    const labelWord = mode === 'event' ? 'この行事'
+                    : mode === 'month' ? 'この月の活動全体'
+                    : 'この行事×月';
+
+    const s = summary;
+    const lines = [];
+    const chips = [];
+
+    if (s.avgSatisfy >= 4.5) chips.push('高満足度');
+    else if (s.avgSatisfy <= 3) chips.push('満足度テコ入れ');
+    if (s.avgMood >= 4.3) chips.push('雰囲気◎');
+    if (s.avgContent >= 4.3) chips.push('内容の質◎');
+
+    if (s.avgSatisfy != null) {
+      if (s.avgSatisfy >= 4.5) {
+        lines.push(`${labelWord}は<strong>非常に高い満足度</strong>（平均 ${s.avgSatisfy.toFixed(2)}）が得られています。今の方向性を軸にしつつ、継続・再現性を意識すると良さそうです。`);
+      } else if (s.avgSatisfy >= 4.0) {
+        lines.push(`${labelWord}は概ね良好な評価（満足度 ${s.avgSatisfy.toFixed(2)}）です。あと半歩上げるには、「一番印象に残る瞬間」を意図的に設計してあげると効果的です。`);
+      } else {
+        lines.push(`${labelWord}の満足度（${s.avgSatisfy.toFixed(2)}）はやや伸び悩んでいます。特に低くなっている観点を1つだけ決めて、そこに的を絞って改善してみると変化が見えやすいです。`);
+      }
+    }
+
+    const pairs = [
+      ['時間・構成', s.avgTimeFlow],
+      ['内容の質', s.avgContent],
+      ['雰囲気・安心感', s.avgMood],
+      ['楽しさ・やりがい', s.avgEmotion],
+      ['再参加意向', s.avgRejoin]
+    ];
+    const sorted = pairs
+      .filter(([,v]) => v != null)
+      .sort((a,b) => b[1] - a[1]);
+
+    if (sorted.length >= 2) {
+      const best = sorted[0];
+      const weak = sorted[sorted.length - 1];
+      lines.push(
+        `特に評価が高いのは「<strong>${best[0]}</strong>」（${best[1].toFixed(2)}）です。一方で「<strong>${weak[0]}</strong>」（${weak[1].toFixed(2)}）は相対的に弱めなので、ここを1段階だけ引き上げる工夫をすると、全体の印象がぐっと良くなります。`
+      );
+    }
+
+    if (s.history && s.history.length >= 2) {
+      const first = s.history[0].satisfy;
+      const last = s.history[s.history.length - 1].satisfy;
+      const diff = last - first;
+      if (Math.abs(diff) >= 0.5) {
+        if (diff > 0) {
+          lines.push(`満足度の推移を見ると、開始時より<strong>約 ${diff.toFixed(2)} ポイント改善</strong>しています。この流れを維持するために「うまくいった要素」をメモしてチームで共有しておくと再現しやすくなります。`);
+        } else {
+          lines.push(`満足度は初期より<strong>約 ${Math.abs(diff).toFixed(2)} ポイント低下</strong>しています。最近のコメントから「負担感・時間・内容の難しさ」など、共通するキーワードがないか確認してみると原因ヒントが見つかるかもしれません。`);
+        }
+      }
+    }
+
+    if (summary.comments && summary.comments.length) {
+      lines.push(`参加者の「よかった点」は、次回以降の<strong>残すべき要素</strong>のヒントです。特に頻出しているワード（例：雰囲気・語り・証し・分かち合いなど）をピックアップして、「必ず入れる定番パーツ」として設計しておくと、安定感のある集会づくりにつながります。`);
+    } else {
+      lines.push(`まだコメントは少なめなので、フォーム内に「一言だけでも大歓迎です！」などの声がけを入れてみると、参加者の本音が集まりやすくなります。`);
+    }
+
+    if (mode === 'event') {
+      lines.push(`最後に、この行事のPDCAとしては「①一番手応えのある観点を守る」「②一番低い観点を1段階だけ上げる小さな工夫を試す」「③その結果を次回のグラフで確認する」の3ステップで回していくと、数字と実感が結びついた改善サイクルになります。`);
+    } else if (mode === 'month') {
+      lines.push(`月別で見ると、行事ごとのバラつきが平準化されて見えます。満足度の低い月は「行事の偏り」や「時期的な忙しさ」の影響もあるので、翌月以降のスケジュール調整や内容配分の見直しにも活用できます。`);
+    } else {
+      lines.push(`行事×月で見ることで、「どのタイミングのこの行事が特に刺さっているか／伸び悩んでいるか」がはっきりします。良かった組み合わせはモデルケースとして、他の月にも展開していくと効果的です。`);
+    }
+
+    let html = '';
+    if (chips.length) {
+      html += chips.map(c => `<span class="ai-chip">${c}</span>`).join('') + '<br>';
+    }
+    html += `<div class="ai-section-title">1. 全体の印象</div>${lines[0] || ''}`;
+    if (lines[1]) html += `<div class="ai-section-title">2. 強みと弱み</div>${lines[1]}`;
+    if (lines[2]) html += `<div class="ai-section-title">3. 推移から見えるポイント</div>${lines[2]}`;
+    if (lines[3]) html += `<div class="ai-section-title">4. 参加者の声をどう活かすか</div>${lines[3]}`;
+    if (lines[4]) html += `<div class="ai-section-title">5. 次の一手</div>${lines[4]}`;
+    return html;
+  }
+
+  function updateInsight(summary, mode) {
+    const box = document.getElementById('aiInsight');
+    box.innerHTML = generateInsight(summary, mode);
+  }
+
+  /***** CSVエクスポート *****/
+  function exportCsv(rows) {
+    if (!rows || !rows.length) {
+      alert('エクスポート対象のデータがありません。');
+      return;
+    }
+    const header = [
+      'タイムスタンプ','活動名','実施日','名前','区分',
+      'Q5_時間','Q6_進行','Q7_学び','Q8_雰囲気','Q9_つながり',
+      'Q10_楽しさ','Q11_参加してよかった','Q12_満足度','Q13_再参加',
+      'よかった点','改善してほしい点'
+    ];
+    const lines = [header.join(',')];
+
+    const esc = (v) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v).replace(/"/g,'""');
+      return `"${s}"`;
+    };
+
+    rows.forEach(r => {
+      const row = [
+        esc(formatDateLabel(r.timestamp)),
+        esc(r.eventName),
+        esc(formatDateLabel(r.date)),
+        esc(r.name),
+        esc(r.kubun),
+        esc(r.q5), esc(r.q6), esc(r.q7), esc(r.q8), esc(r.q9),
+        esc(r.q10), esc(r.q11), esc(r.q12), esc(r.q13),
+        esc(r.good),
+        esc(r.improve)
+      ];
+      lines.push(row.join(','));
+    });
+
+    const blob = new Blob([lines.join('\r\n')], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    let modeLabel;
+    if (currentMode === 'event') {
+      modeLabel = document.getElementById('eventSelect').value || 'all';
+    } else if (currentMode === 'month') {
+      modeLabel = document.getElementById('monthSelect').value || 'month';
+    } else {
+      modeLabel = (document.getElementById('eventSelect').value || 'event')
+        + '_' + (document.getElementById('monthSelect').value || 'month');
+    }
+    a.href = url;
+    a.download = `seinen-report_${currentMode}_${modeLabel}_${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /***** メイン処理 *****/
+  (async function init() {
+    const status = document.getElementById('status');
+    status.textContent = '読み込み中…';
+
+    try {
+      allData = await fetchSheetData();
+      if (!allData.length) {
+        status.textContent = '回答がまだありません。';
+        return;
+      }
+      groupDataStructures(allData);
+
+      const eventSelect = document.getElementById('eventSelect');
+      eventSelect.innerHTML = '';
+      for (const key of byEvent.keys()) {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = key;
+        eventSelect.appendChild(opt);
+      }
+
+      const monthSelect = document.getElementById('monthSelect');
+      monthSelect.innerHTML = '';
+      const monthKeys = Array.from(byMonth.keys()).sort();
+      monthKeys.forEach(k => {
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = k;
+        monthSelect.appendChild(opt);
+      });
+
+      // 表示モードボタン
+      document.getElementById('modeEvent').addEventListener('click', () => {
+        currentMode = 'event';
+        setModeButtonsActive('modeEvent');
+        document.getElementById('eventSelectGroup').style.display = '';
+        document.getElementById('monthSelectGroup').style.display = 'none';
+        updateForSelection();
+      });
+      document.getElementById('modeMonth').addEventListener('click', () => {
+        currentMode = 'month';
+        setModeButtonsActive('modeMonth');
+        document.getElementById('eventSelectGroup').style.display = 'none';
+        document.getElementById('monthSelectGroup').style.display = '';
+        updateForSelection();
+      });
+      document.getElementById('modeEventMonth').addEventListener('click', () => {
+        currentMode = 'eventMonth';
+        setModeButtonsActive('modeEventMonth');
+        document.getElementById('eventSelectGroup').style.display = '';
+        document.getElementById('monthSelectGroup').style.display = '';
+        updateForSelection();
+      });
+
+      // 行事 / 月セレクト
+      eventSelect.addEventListener('change', updateForSelection);
+      monthSelect.addEventListener('change', updateForSelection);
+
+      // グラフ種別トグル
+      document.getElementById('trendLineBtn').addEventListener('click', () => {
+        currentTrendType = 'line';
+        setTrendButtonsActive('trendLineBtn');
+        if (currentSummary) updateCharts(currentSummary);
+      });
+      document.getElementById('trendBarBtn').addEventListener('click', () => {
+        currentTrendType = 'bar';
+        setTrendButtonsActive('trendBarBtn');
+        if (currentSummary) updateCharts(currentSummary);
+      });
+
+      // CSV
+      document.getElementById('csvBtn').addEventListener('click', () => {
+        const rows = getCurrentRows();
+        exportCsv(rows);
+      });
+
+      updateForSelection();
+      status.textContent = '';
+
+    } catch (e) {
+      console.error(e);
+      document.getElementById('status').textContent = 'データ取得エラー: ' + e.message;
+    }
+  })();
+
+  function setModeButtonsActive(id) {
+    ['modeEvent','modeMonth','modeEventMonth'].forEach(btnId => {
+      const el = document.getElementById(btnId);
+      if (!el) return;
+      if (btnId === id) el.classList.add('active');
+      else el.classList.remove('active');
+    });
+  }
+  function setTrendButtonsActive(id) {
+    ['trendLineBtn','trendBarBtn'].forEach(btnId => {
+      const el = document.getElementById(btnId);
+      if (!el) return;
+      if (btnId === id) el.classList.add('active');
+      else el.classList.remove('active');
+    });
+  }
+
+  function getCurrentRows() {
+    if (currentMode === 'event') {
+      const key = document.getElementById('eventSelect').value;
+      return byEvent.get(key) || [];
+    } else if (currentMode === 'month') {
+      const key = document.getElementById('monthSelect').value;
+      return byMonth.get(key) || [];
+    } else { // eventMonth
+      const eKey = document.getElementById('eventSelect').value;
+      const mKey = document.getElementById('monthSelect').value;
+      return allData.filter(r =>
+        (r.eventName || '') === eKey &&
+        getMonthKey(r.date || r.timestamp) === mKey
+      );
+    }
+  }
+
+  function updateForSelection() {
+    const status = document.getElementById('status');
+    const rows = getCurrentRows();
+    if (!rows.length) {
+      status.textContent = 'この条件の回答はまだありません。';
+      currentSummary = null;
+      return;
+    }
+    status.textContent = '';
+
+    let label;
+    if (currentMode === 'event') {
+      label = document.getElementById('eventSelect').value;
+    } else if (currentMode === 'month') {
+      label = document.getElementById('monthSelect').value;
+    } else {
+      label = document.getElementById('eventSelect').value
+        + ' × ' + document.getElementById('monthSelect').value;
+    }
+
+    currentSummary = calcSummary(rows, label);
+    updateSummaryCards(currentSummary);
+    updateCharts(currentSummary);
+    updateComments(currentSummary);
+    updateInsight(currentSummary, currentMode);
+  }
+</script>
+</body>
+</html>
