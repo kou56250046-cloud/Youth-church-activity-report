@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>青年活動レポート</title>
+  <title>青年活動レポートダッシュボード</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -165,10 +165,14 @@
       gap: 16px;
     }
     .chart-card {
-      height: 320px;
+      height: 380px;
       display: flex;
       flex-direction: column;
       padding: 14px 16px;
+    }
+    /* レーダーチャートだけ少し大きく */
+    .chart-card.radar-card {
+      height: 380px;
     }
     .chart-title {
       font-size: 0.85rem;
@@ -184,9 +188,16 @@
     .chart-card canvas {
       flex: 1;
     }
-    .trend-toggle .mode-btn {
-      font-size: 0.7rem;
-      padding: 4px 10px;
+
+    .metric-select {
+      background: #020617;
+      border-radius: 999px;
+      border: 1px solid #374151;
+      padding: 4px 24px 4px 10px;
+      color: #e5e7eb;
+      font-size: 0.78rem;
+      outline: none;
+      min-width: 140px;
     }
 
     /* 下段：コメント & AI分析 */
@@ -280,7 +291,7 @@
 <body>
 <div class="app">
   <header>
-    <h1><span class="logo-dot"></span>青年活動レポート</h1>
+    <h1><span class="logo-dot"></span>青年活動レポートダッシュボード</h1>
     <div class="subtitle">
       行事別・月別に、5段階評価・満足度・雰囲気・再参加意向・コメントを自動で集計し、<br>
       青年部の伝道・育成・場づくりをデータで振り返るためのダッシュボードです。
@@ -324,17 +335,23 @@
 
   <!-- グラフ -->
   <div class="chart-row">
-    <div class="card chart-card">
+    <!-- レーダーチャート -->
+    <div class="card chart-card radar-card">
       <div class="chart-title">レーダーチャート（バランス）</div>
       <canvas id="radarChart"></canvas>
     </div>
+    <!-- 月別平均棒グラフ -->
     <div class="card chart-card">
       <div class="chart-header">
-        <div class="chart-title">満足度の推移</div>
-        <div class="mode-toggle trend-toggle">
-          <button id="trendLineBtn" class="mode-btn active" data-type="line">折れ線</button>
-          <button id="trendBarBtn" class="mode-btn" data-type="bar">棒グラフ</button>
-        </div>
+        <div class="chart-title">指標の推移（月別平均）</div>
+        <select id="metricSelect" class="metric-select">
+          <option value="timeFlow">時間・構成</option>
+          <option value="content">内容の質</option>
+          <option value="mood">雰囲気・安心感</option>
+          <option value="emotion">楽しさ・やりがい</option>
+          <option value="satisfy" selected>満足度</option>
+          <option value="rejoin">再参加意向</option>
+        </select>
       </div>
       <canvas id="lineChart"></canvas>
     </div>
@@ -366,21 +383,42 @@
   let byEvent = new Map();
   let byMonth = new Map();
   let currentMode = 'event';        // 'event' | 'month' | 'eventMonth'
-  let currentTrendType = 'line';    // 'line' | 'bar'
   let currentSummary = null;
+  let currentMetric = 'satisfy';    // 時間・構成 etc...
 
   /***** ユーティリティ：日付表示用 *****/
   function formatDateLabel(raw) {
     if (!raw) return '';
-    if (raw instanceof Date) {
+
+    if (raw instanceof Date && !isNaN(raw)) {
       const y = raw.getFullYear();
       const m = ('0' + (raw.getMonth() + 1)).slice(-2);
       const d = ('0' + raw.getDate()).slice(-2);
       return `${y}/${m}/${d}`;
     }
-    const d = new Date(raw);
-    if (!isNaN(d)) return formatDateLabel(d);
-    return String(raw);
+
+    const str = String(raw).trim();
+
+    // gviz の "Date(2025,11,6)" 形式をパース（month は 0 始まりなので +1）
+    let mDate = str.match(/Date\((\d{4}),(\d{1,2}),(\d{1,2})\)/);
+    if (mDate) {
+      const y = Number(mDate[1]);
+      const mo = Number(mDate[2]) + 1;
+      const d = Number(mDate[3]);
+      const mm = ('0' + mo).slice(-2);
+      const dd = ('0' + d).slice(-2);
+      return `${y}/${mm}/${dd}`;
+    }
+
+    // 通常の文字列日付
+    const d = new Date(str);
+    if (!isNaN(d)) {
+      const y = d.getFullYear();
+      const mo = ('0' + (d.getMonth() + 1)).slice(-2);
+      const dd = ('0' + d.getDate()).slice(-2);
+      return `${y}/${mo}/${dd}`;
+    }
+    return str;
   }
 
   /***** Google Sheets から JSONP で取得 *****/
@@ -457,13 +495,100 @@
     }
   }
 
+  // 活動月キー (YYYY-MM) を返す
   function getMonthKey(raw) {
     if (!raw) return '未分類';
-    const d = raw instanceof Date ? raw : new Date(raw);
+
+    if (raw instanceof Date && !isNaN(raw)) {
+      const y = raw.getFullYear();
+      const m = ('0' + (raw.getMonth() + 1)).slice(-2);
+      return `${y}-${m}`;
+    }
+
+    const str = String(raw).trim();
+
+    // "Date(2025,11,6)" => 2025-12
+    let mDate = str.match(/Date\((\d{4}),(\d{1,2}),(\d{1,2})\)/);
+    if (mDate) {
+      const y = Number(mDate[1]);
+      const mo = Number(mDate[2]) + 1;
+      const mm = ('0' + mo).slice(-2);
+      return `${y}-${mm}`;
+    }
+
+    // "2025/12/06" など
+    const m = str.match(/(\d{4})\D(\d{1,2})/);
+    if (m) {
+      const y = m[1];
+      const mm = ('0' + m[2]).slice(-2);
+      return `${y}-${mm}`;
+    }
+
+    const d = new Date(str);
     if (isNaN(d)) return '未分類';
-    const y = d.getFullYear();
-    const m = ('0' + (d.getMonth() + 1)).slice(-2);
-    return `${y}-${m}`;
+    const y2 = d.getFullYear();
+    const m2 = ('0' + (d.getMonth() + 1)).slice(-2);
+    return `${y2}-${m2}`;
+  }
+
+  // 1レコードに対する指標値
+  function getMetricValue(row, metricKey) {
+    switch (metricKey) {
+      case 'timeFlow':
+        if (typeof row.q5 === 'number' && typeof row.q6 === 'number') return (row.q5 + row.q6) / 2;
+        if (typeof row.q5 === 'number') return row.q5;
+        if (typeof row.q6 === 'number') return row.q6;
+        return null;
+      case 'content':
+        return row.q7;
+      case 'mood':
+        if (typeof row.q8 === 'number' && typeof row.q9 === 'number') return (row.q8 + row.q9) / 2;
+        if (typeof row.q8 === 'number') return row.q8;
+        if (typeof row.q9 === 'number') return row.q9;
+        return null;
+      case 'emotion':
+        if (typeof row.q10 === 'number' && typeof row.q11 === 'number') return (row.q10 + row.q11) / 2;
+        if (typeof row.q10 === 'number') return row.q10;
+        if (typeof row.q11 === 'number') return row.q11;
+        return null;
+      case 'satisfy':
+        return row.q12;
+      case 'rejoin':
+        return row.q13;
+      default:
+        return null;
+    }
+  }
+
+  const metricNames = {
+    timeFlow: '時間・構成',
+    content: '内容の質',
+    mood: '雰囲気・安心感',
+    emotion: '楽しさ・やりがい',
+    satisfy: '満足度',
+    rejoin: '再参加意向'
+  };
+
+  // 月別平均シリーズを作成
+  function buildMonthlySeries(rows, metricKey) {
+    const map = new Map(); // key: month, value: [scores]
+
+    rows.forEach(r => {
+      const v = getMetricValue(r, metricKey);
+      if (typeof v !== 'number') return;
+      const key = getMonthKey(r.date || r.timestamp);
+      if (key === '未分類') return;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(v);
+    });
+
+    const months = Array.from(map.keys()).sort();
+    const values = months.map(m => {
+      const arr = map.get(m);
+      return arr.reduce((a,b) => a+b, 0) / arr.length;
+    });
+
+    return { labels: months, values };
   }
 
   function calcSummary(rows, label) {
@@ -474,27 +599,12 @@
       return nums.reduce((a,b) => a+b, 0) / nums.length;
     };
 
-    const avgTimeFlow = avg(rows.map(r => {
-      if (typeof r.q5 === 'number' && typeof r.q6 === 'number') return (r.q5 + r.q6) / 2;
-      if (typeof r.q5 === 'number') return r.q5;
-      if (typeof r.q6 === 'number') return r.q6;
-      return null;
-    }));
-    const avgContent = avg(rows.map(r => r.q7));
-    const avgMood = avg(rows.map(r => {
-      if (typeof r.q8 === 'number' && typeof r.q9 === 'number') return (r.q8 + r.q9) / 2;
-      if (typeof r.q8 === 'number') return r.q8;
-      if (typeof r.q9 === 'number') return r.q9;
-      return null;
-    }));
-    const avgEmotion = avg(rows.map(r => {
-      if (typeof r.q10 === 'number' && typeof r.q11 === 'number') return (r.q10 + r.q11) / 2;
-      if (typeof r.q10 === 'number') return r.q10;
-      if (typeof r.q11 === 'number') return r.q11;
-      return null;
-    }));
-    const avgSatisfy = avg(rows.map(r => r.q12));
-    const avgRejoin = avg(rows.map(r => r.q13));
+    const avgTimeFlow = avg(rows.map(r => getMetricValue(r, 'timeFlow')));
+    const avgContent = avg(rows.map(r => getMetricValue(r, 'content')));
+    const avgMood = avg(rows.map(r => getMetricValue(r, 'mood')));
+    const avgEmotion = avg(rows.map(r => getMetricValue(r, 'emotion')));
+    const avgSatisfy = avg(rows.map(r => getMetricValue(r, 'satisfy')));
+    const avgRejoin = avg(rows.map(r => getMetricValue(r, 'rejoin')));
 
     const history = rows
       .filter(r => r.q12 != null)
@@ -536,13 +646,14 @@
   /***** Chart.js 描画 *****/
   let radarChart, lineChart;
 
-  function updateCharts(summary) {
+  function updateCharts(summary, rows) {
     const radarCtx = document.getElementById('radarChart').getContext('2d');
     const lineCtx = document.getElementById('lineChart').getContext('2d');
 
     if (radarChart) radarChart.destroy();
     if (lineChart) lineChart.destroy();
 
+    // --- レーダーチャート ---
     const labels = ['時間・構成', '内容の質', '雰囲気・安心感', '楽しさ・やりがい', '満足度', '再参加意向'];
     const data = [
       summary.avgTimeFlow,
@@ -554,53 +665,62 @@
     ];
 
     radarChart = new Chart(radarCtx, {
-      type: 'radar',
-      data: {
-        labels,
-        datasets: [{
-          label: summary.label,
-          data,
-          fill: true,
-          borderWidth: 2.5,
-          pointRadius: 3,
-          pointHoverRadius: 4
-        }]
-      },
-      options: {
-        plugins: {
-          legend: { labels: { color: '#e5e7eb' } }
-        },
-        scales: {
-          r: {
-            min: 1,
-            max: 5,
-            ticks: {
-              stepSize: 1,
-              color: '#9ca3af',
-              backdropColor: 'rgba(0,0,0,0)'  // 数字の白塗りつぶしを消す
-            },
-            grid: {},
-            angleLines: {},
-            pointLabels: { color: '#e5e7eb' }
-          }
-        }
-      }
-    });
+  type: 'radar',
+  data: {
+    labels,
+    datasets: [{
+      label: summary.label,
+      data,
+      fill: true,
+      borderWidth: 2.5,
+      pointRadius: 3,
+      pointHoverRadius: 4
+    }]
+  },
+  options: {
+    maintainAspectRatio: false,
 
-    const labelsLine = summary.history.map(h => h.date);
-    const dataLine = summary.history.map(h => h.satisfy);
+    plugins: {
+      legend: { labels: { color: '#e5e7eb' } }
+    },
+    scales: {
+      r: {
+        min: 1,
+        max: 5,
+        ticks: {
+          stepSize: 1,
+          color: '#9ca3af',
+          backdropColor: 'rgba(0,0,0,0)'
+        },
+        grid: {
+          color: 'rgba(148,163,184,0.45)',
+          lineWidth: 1
+        },
+        angleLines: {
+          color: 'rgba(30,64,175,0.55)',
+          lineWidth: 1
+        },
+        pointLabels: { color: '#e5e7eb' }
+      }
+    }
+  }
+});
+
+
+    // --- 月別平均棒グラフ ---
+    const series = buildMonthlySeries(rows, currentMetric);
 
     lineChart = new Chart(lineCtx, {
-      type: currentTrendType,
+      type: 'bar',
       data: {
-        labels: labelsLine,
+        labels: series.labels,
         datasets: [{
-          label: '満足度',
-          data: dataLine,
-          tension: currentTrendType === 'line' ? 0.25 : 0
+          label: metricNames[currentMetric],
+          data: series.values
         }]
       },
       options: {
+        maintainAspectRatio: false,
         plugins: {
           legend: { labels: { color: '#e5e7eb' } }
         },
@@ -666,7 +786,7 @@
     });
   }
 
-  /***** 「AI風」分析コメント生成 *****/
+  /***** 「AI風」分析コメント生成（そのまま） *****/
   function generateInsight(summary, mode) {
     if (!summary) return 'データがありません。';
 
@@ -871,16 +991,13 @@
       eventSelect.addEventListener('change', updateForSelection);
       monthSelect.addEventListener('change', updateForSelection);
 
-      // グラフ種別トグル
-      document.getElementById('trendLineBtn').addEventListener('click', () => {
-        currentTrendType = 'line';
-        setTrendButtonsActive('trendLineBtn');
-        if (currentSummary) updateCharts(currentSummary);
-      });
-      document.getElementById('trendBarBtn').addEventListener('click', () => {
-        currentTrendType = 'bar';
-        setTrendButtonsActive('trendBarBtn');
-        if (currentSummary) updateCharts(currentSummary);
+      // 指標選択
+      document.getElementById('metricSelect').addEventListener('change', (e) => {
+        currentMetric = e.target.value;
+        if (currentSummary) {
+          const rows = getCurrentRows();
+          updateCharts(currentSummary, rows);
+        }
       });
 
       // CSV
@@ -900,14 +1017,6 @@
 
   function setModeButtonsActive(id) {
     ['modeEvent','modeMonth','modeEventMonth'].forEach(btnId => {
-      const el = document.getElementById(btnId);
-      if (!el) return;
-      if (btnId === id) el.classList.add('active');
-      else el.classList.remove('active');
-    });
-  }
-  function setTrendButtonsActive(id) {
-    ['trendLineBtn','trendBarBtn'].forEach(btnId => {
       const el = document.getElementById(btnId);
       if (!el) return;
       if (btnId === id) el.classList.add('active');
@@ -954,7 +1063,7 @@
 
     currentSummary = calcSummary(rows, label);
     updateSummaryCards(currentSummary);
-    updateCharts(currentSummary);
+    updateCharts(currentSummary, rows);
     updateComments(currentSummary);
     updateInsight(currentSummary, currentMode);
   }
