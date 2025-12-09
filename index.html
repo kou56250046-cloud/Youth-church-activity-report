@@ -342,6 +342,21 @@
       <select id="monthSelect"></select>
     </div>
 
+    <!-- ★ 追加：区分セレクト -->
+    <div class="control-group" id="kubunSelectGroup">
+      <span class="control-label">区分：</span>
+      <select id="kubunSelect">
+        <option value="all">全て</option>
+        <option value="小中高生">小中高生</option>
+        <option value="青年">青年</option>
+        <option value="家庭青年">家庭青年</option>
+        <option value="壮年">壮年</option>
+        <option value="婦人">婦人</option>
+        <option value="その他">その他</option>
+      </select>
+    </div>
+    <!-- ここまで -->
+
     <div class="control-group">
       <button id="csvBtn" class="pill-button">
         ⬇ CSVエクスポート
@@ -953,6 +968,10 @@
       modeLabel = (document.getElementById('eventSelect').value || 'event')
         + '_' + (document.getElementById('monthSelect').value || 'month');
     }
+    const kubunVal = document.getElementById('kubunSelect').value || 'all';
+    if (kubunVal !== 'all') {
+      modeLabel += `_kubun-${kubunVal}`;
+    }
     a.href = url;
     a.download = `seinen-report_${currentMode}_${modeLabel}_${stamp}.csv`;
     document.body.appendChild(a);
@@ -1020,6 +1039,9 @@
       eventSelect.addEventListener('change', updateForSelection);
       monthSelect.addEventListener('change', updateForSelection);
 
+      // 区分セレクト
+      document.getElementById('kubunSelect').addEventListener('change', updateForSelection);
+
       // 指標選択
       document.getElementById('metricSelect').addEventListener('change', (e) => {
         currentMetric = e.target.value;
@@ -1053,21 +1075,30 @@
     });
   }
 
+  // ★ 区分フィルタを適用する共通関数
+  function applyKubunFilter(rows) {
+    const kubun = document.getElementById('kubunSelect')?.value || 'all';
+    if (kubun === 'all') return rows;
+    return rows.filter(r => (String(r.kubun || '').trim() === kubun));
+  }
+
   function getCurrentRows() {
+    let baseRows;
     if (currentMode === 'event') {
       const key = document.getElementById('eventSelect').value;
-      return byEvent.get(key) || [];
+      baseRows = byEvent.get(key) || [];
     } else if (currentMode === 'month') {
       const key = document.getElementById('monthSelect').value;
-      return byMonth.get(key) || [];
+      baseRows = byMonth.get(key) || [];
     } else { // eventMonth
       const eKey = document.getElementById('eventSelect').value;
       const mKey = document.getElementById('monthSelect').value;
-      return allData.filter(r =>
+      baseRows = allData.filter(r =>
         (r.eventName || '') === eKey &&
         getMonthKey(r.date || r.timestamp) === mKey
       );
     }
+    return applyKubunFilter(baseRows);
   }
 
   function updateForSelection() {
@@ -1076,9 +1107,12 @@
     if (!rows.length) {
       status.textContent = 'この条件の回答はまだありません。';
       currentSummary = null;
+      // グラフを消すよりもそのままにしておく仕様のまま
       return;
     }
     status.textContent = '';
+
+    const kubunVal = document.getElementById('kubunSelect').value || 'all';
 
     let label;
     if (currentMode === 'event') {
@@ -1088,6 +1122,9 @@
     } else {
       label = document.getElementById('eventSelect').value
         + ' × ' + document.getElementById('monthSelect').value;
+    }
+    if (kubunVal !== 'all') {
+      label += `（区分：${kubunVal}）`;
     }
 
     currentSummary = calcSummary(rows, label);
